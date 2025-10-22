@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Gemini Multi-Tool Suite",
+  "description": "An all-in-one application showcasing various Gemini API capabilities, including a chat bot, text-to-speech, audio transcription, advanced video generation with Veo, and a tool to create video presentations from podcasts.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
