@@ -4,7 +4,7 @@ import { decode, decodeAudioData } from '../utils/audioUtils';
 import Spinner from './common/Spinner';
 
 const TTS: React.FC = () => {
-    const [text, setText] = useState('Hello! I am a friendly AI assistant powered by Gemini. You can ask me to say anything you want.');
+    const [text, setText] = useState('Hello! I am an AI voice model powered by Gemini. Enter any text to convert it into natural voice audio.');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -22,7 +22,6 @@ const TTS: React.FC = () => {
             if (!audioContextRef.current) {
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             }
-            // Resume context on user gesture
             if (audioContextRef.current.state === 'suspended') {
                 await audioContextRef.current.resume();
             }
@@ -38,18 +37,13 @@ const TTS: React.FC = () => {
                 source.connect(audioContextRef.current.destination);
                 source.start();
             } else {
-                throw new Error("API returned empty audio data, the input text may be unsupported.");
+                throw new Error("API returned empty audio data.");
             }
         } catch (err) {
             console.error("TTS Error:", err);
-            let message = 'An error occurred while generating speech. Please try again.';
+            let message = 'An error occurred while generating speech.';
             if (err instanceof Error) {
-                try {
-                    const apiError = JSON.parse(err.message);
-                    message = `Error: ${apiError?.error?.message || 'The API returned an unexpected response.'}`;
-                } catch (e) {
-                     message = `Error: ${err.message}`;
-                }
+                message = `Error: ${err.message}`;
             }
             setError(message);
         } finally {
@@ -58,9 +52,14 @@ const TTS: React.FC = () => {
     };
 
     return (
-        <div className="max-w-2xl mx-auto p-8 bg-gray-800/50 rounded-lg shadow-2xl border border-gray-700">
-            <h2 className="text-3xl font-bold text-center text-white mb-2">Text-to-Speech</h2>
-            <p className="text-center text-gray-400 mb-6">Bring your text to life with a realistic AI voice.</p>
+        <div className="max-w-2xl mx-auto p-8 bg-zinc-900/80 rounded-2xl border border-zinc-800 shadow-2xl backdrop-blur-md">
+            <div className="text-center mb-6">
+                <span className="px-3 py-1 text-xs font-mono tracking-widest text-zinc-400 bg-zinc-800/80 border border-zinc-700/50 rounded-full uppercase">
+                    Voice Synthesis
+                </span>
+                <h2 className="text-2xl font-bold tracking-tight text-white mt-3 mb-1">Text-to-Speech</h2>
+                <p className="text-xs text-zinc-400">Natural voice narration generated directly from text.</p>
+            </div>
             
             <div className="space-y-4">
                 <textarea
@@ -68,19 +67,19 @@ const TTS: React.FC = () => {
                     onChange={(e) => setText(e.target.value)}
                     placeholder="Enter text here..."
                     rows={6}
-                    className="w-full px-4 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
+                    className="w-full px-4 py-3 bg-zinc-950 text-zinc-100 border border-zinc-800 rounded-xl focus:outline-none focus:border-zinc-500 transition-colors placeholder-zinc-600 text-sm leading-relaxed"
                     disabled={isLoading}
                 />
                 
                 <button
                     onClick={handleGenerateSpeech}
                     disabled={isLoading}
-                    className="w-full flex justify-center items-center px-6 py-3 bg-cyan-500 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-600 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                    className="w-full flex justify-center items-center py-3.5 bg-white text-black font-medium text-sm rounded-xl hover:bg-zinc-200 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed transition-all shadow-sm"
                 >
-                    {isLoading ? <Spinner size="sm" /> : 'Generate Speech'}
+                    {isLoading ? <Spinner size="sm" text="Generating speech..." /> : 'Generate Speech'}
                 </button>
                 
-                {error && <p className="text-red-400 text-center mt-4">{error}</p>}
+                {error && <p className="text-xs text-red-400 font-mono text-center">{error}</p>}
             </div>
         </div>
     );

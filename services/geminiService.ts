@@ -1,17 +1,9 @@
-import { GoogleGenAI, Chat, GenerateContentResponse, Type, Operation, VideosOperationResponse, Modality } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Type, Modality, Operation, VideosOperationResponse } from "@google/genai";
 import type { GenerateVideoParams } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const getApiKey = (): string => process.env.GEMINI_API_KEY || process.env.API_KEY || '';
 
-export const createChatSession = (): Chat => {
-    return ai.chats.create({
-        model: 'gemini-2.5-flash',
-    });
-};
-
-export const sendMessageStream = async (chat: Chat, message: string) => {
-    return await chat.sendMessageStream({ message });
-};
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export const generateSpeech = async (text: string): Promise<string | null> => {
     try {
@@ -19,7 +11,6 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
             model: "gemini-2.5-flash-preview-tts",
             contents: [{ parts: [{ text }] }],
             config: {
-                // FIX: Used Modality.AUDIO enum for type safety as per API guidelines.
                 responseModalities: [Modality.AUDIO],
                 speechConfig: {
                     voiceConfig: {
@@ -37,7 +28,7 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
 
 export const generateVideo = async (params: GenerateVideoParams): Promise<Operation<VideosOperationResponse>> => {
     const { prompt, aspectRatio, image, duration, fps } = params;
-    const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    const client = new GoogleGenAI({ apiKey: getApiKey() });
 
     const config: any = {
         numberOfVideos: 1,
@@ -56,14 +47,13 @@ export const generateVideo = async (params: GenerateVideoParams): Promise<Operat
         requestPayload.image = image;
     }
 
-    return await getAi().models.generateVideos(requestPayload);
+    return await client.models.generateVideos(requestPayload);
 };
 
-
 export const getVideosOperation = async (operation: Operation<VideosOperationResponse>): Promise<Operation<VideosOperationResponse>> => {
-    const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-    return await getAi().operations.getVideosOperation({ operation });
-}
+    const client = new GoogleGenAI({ apiKey: getApiKey() });
+    return await client.operations.getVideosOperation({ operation });
+};
 
 export const analyzePodcastTranscript = async (transcript: string): Promise<GenerateContentResponse> => {
     const prompt = `You are a visionary video producer. Your task is to transform the following podcast transcript into a compelling, short video presentation.

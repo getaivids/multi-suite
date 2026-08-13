@@ -1,7 +1,10 @@
 {
-  "name": "Copy of Gemini Multi-Tool Suite",
-  "description": "An all-in-one application showcasing various Gemini API capabilities, including a chat bot, text-to-speech, audio transcription, advanced video generation with Veo, and a tool to create video presentations from podcasts.",
+  "name": "Podcast Studio",
+  "description": "An AI-powered video generator that transforms podcast transcripts into cinematic visual presentations using Gemini and Veo.",
   "requestFramePermissions": [
     "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
 }

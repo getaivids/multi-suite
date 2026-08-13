@@ -1,9 +1,3 @@
-export interface ChatMessage {
-    role: 'user' | 'model';
-    text: string;
-    isError?: boolean;
-}
-
 export interface Scene {
     scene_number: number;
     narration: string;
@@ -23,16 +17,4 @@ export interface GenerateVideoParams {
     image?: { imageBytes: string; mimeType: string };
     duration?: number;
     fps?: number;
-}
-
-// FIX: Centralized AIStudio type and global window declaration to avoid conflicts.
-export interface AIStudio {
-    hasSelectedApiKey: () => Promise<boolean>;
-    openSelectKey: () => Promise<void>;
-}
-
-declare global {
-    interface Window {
-        aistudio: AIStudio;
-    }
 }

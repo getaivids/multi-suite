@@ -6,20 +6,20 @@ interface TabsProps {
     setActiveTab: (tab: Tab) => void;
 }
 
-const TABS: Tab[] = ['Podcast to Video', 'Video Generation', 'Audio Transcription', 'Chat', 'TTS'];
+const TABS: Tab[] = ['Podcast to Video', 'TTS', 'Audio Transcription'];
 
 const TabsComponent: React.FC<TabsProps> = ({ activeTab, setActiveTab }) => {
     return (
-        <nav className="flex flex-wrap justify-center sm:justify-end space-x-2 sm:space-x-4">
+        <nav className="flex flex-wrap justify-center sm:justify-end gap-1.5 p-1 bg-zinc-900 border border-zinc-800 rounded-xl">
             {TABS.map((tab) => (
                 <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`px-3 py-2 text-sm sm:text-base font-medium rounded-md transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-cyan-500
-                        ${activeTab === tab
-                            ? 'bg-cyan-500 text-white shadow-md'
-                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                        }`}
+                    className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 ease-out focus:outline-none ${
+                        activeTab === tab
+                            ? 'bg-white text-black font-semibold shadow-sm'
+                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                    }`}
                 >
                     {tab}
                 </button>

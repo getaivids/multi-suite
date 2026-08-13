@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import ApiKeySelector from './common/ApiKeySelector';
 import { analyzePodcastTranscript, generateVideo, getVideosOperation } from '../services/geminiService';
 import type { Scene, GeneratedVideo } from '../types';
 import Spinner from './common/Spinner';
@@ -19,6 +18,7 @@ const PodcastToVideo: React.FC = () => {
     const [scenes, setScenes] = useState<Scene[]>([]);
     const [generatedVideos, setGeneratedVideos] = useState<GeneratedVideo[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
     const handleAnalyze = async () => {
         if (!transcript.trim()) {
@@ -58,7 +58,7 @@ const PodcastToVideo: React.FC = () => {
             setStep(ProcessStep.ERROR);
         }
     };
-    
+
     const handleGenerateVideos = async () => {
         setStep(ProcessStep.GENERATING_VIDEOS);
         setError(null);
@@ -82,13 +82,15 @@ const PodcastToVideo: React.FC = () => {
                 
                 let currentOperation = operation;
                 while (!currentOperation.done) {
-                    await new Promise(resolve => setTimeout(resolve, 10000));
+                    await new Promise(resolve => setTimeout(resolve, 8000));
                     currentOperation = await getVideosOperation(currentOperation);
                 }
 
-                const url = currentOperation.response?.generatedVideos?.[0]?.video?.uri;
-                if (url) {
-                    const response = await fetch(`${url}&key=${process.env.API_KEY}`);
+                const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+                const rawUrl = currentOperation.response?.generatedVideos?.[0]?.video?.uri;
+                if (rawUrl) {
+                    const fetchUrl = apiKey ? `${rawUrl}&key=${apiKey}` : rawUrl;
+                    const response = await fetch(fetchUrl);
                     const blob = await response.blob();
                     const videoUrl = URL.createObjectURL(blob);
                     setGeneratedVideos(prev => prev.map((v, index) => index === i ? { ...v, status: 'done', videoUrl } : v));
@@ -99,26 +101,21 @@ const PodcastToVideo: React.FC = () => {
                 console.error(`Error generating video for scene ${i + 1}:`, err);
                 let message = 'Failed to generate video.';
                 if (err instanceof Error) {
-                     if (err.message.includes("API key not valid")) {
-                        message = 'API Key invalid. Please start over.';
-                    } else if (err.message.includes("400")) {
-                        message = "Invalid prompt for this scene.";
-                    } else {
-                        try {
-                            const apiError = JSON.parse(err.message);
-                            message = apiError?.error?.message || err.message;
-                        } catch (e) {
-                             message = err.message;
-                        }
-                    }
+                    message = err.message;
                 }
                 setGeneratedVideos(prev => prev.map((v, index) => index === i ? { ...v, status: 'error', errorMessage: message } : v));
-                if (!error) { // Only set the general error for the first failure
-                    setError(`An error occurred on Scene ${i + 1}. See details in the progress list.`);
+                if (!error) {
+                    setError(`An error occurred on Scene ${i + 1}. Details shown in scene list.`);
                 }
             }
         }
         setStep(ProcessStep.DONE);
+    };
+
+    const copyToClipboard = (text: string, index: number) => {
+        navigator.clipboard.writeText(text);
+        setCopiedIndex(index);
+        setTimeout(() => setCopiedIndex(null), 2000);
     };
 
     const resetProcess = () => {
@@ -127,103 +124,158 @@ const PodcastToVideo: React.FC = () => {
         setScenes([]);
         setGeneratedVideos([]);
         setError(null);
-    }
+    };
 
     return (
-        <ApiKeySelector>
-            <div className="max-w-5xl mx-auto p-8 bg-gray-800/50 rounded-lg shadow-2xl border border-gray-700">
-                <h2 className="text-3xl font-bold text-center text-white mb-2">Podcast to Video Presentation</h2>
-                <p className="text-center text-gray-400 mb-8">Transform audio transcripts into stunning visual stories, powered by Gemini Pro and Veo.</p>
+        <div className="max-w-5xl mx-auto p-8 bg-zinc-900/80 rounded-2xl border border-zinc-800 shadow-2xl backdrop-blur-md">
+            <div className="text-center mb-8">
+                <span className="px-3 py-1 text-xs font-mono tracking-widest text-zinc-400 bg-zinc-800/80 border border-zinc-700/50 rounded-full uppercase">
+                    Podcast to Video Presentation
+                </span>
+                <h2 className="text-3xl font-bold tracking-tight text-white mt-3 mb-2">
+                    Transform Transcripts into Cinematic AI Videos
+                </h2>
+                <p className="text-sm text-zinc-400 max-w-xl mx-auto">
+                    Turn raw podcast audio transcripts into key visual scenes, concise narrations, and complete AI video generation with Veo.
+                </p>
+            </div>
 
-                {step === ProcessStep.IDLE && (
-                    <>
-                        <p className="text-sm text-center text-yellow-300 bg-yellow-900/30 p-3 rounded-lg mb-6">
-                            <strong>Note:</strong> This tool currently requires a text transcript. In the future, audio file uploads will be supported for automatic transcription.
-                        </p>
-                        <textarea
-                            value={transcript}
-                            onChange={(e) => setTranscript(e.target.value)}
-                            rows={10}
-                            className="w-full px-4 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                            placeholder="Paste your podcast transcript here..."
-                        />
-                        <button onClick={handleAnalyze} className="mt-4 w-full px-6 py-3 bg-cyan-500 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-600">
-                            Analyze Transcript & Create Scenes
-                        </button>
-                    </>
-                )}
+            {step === ProcessStep.IDLE && (
+                <div className="space-y-4">
+                    <textarea
+                        value={transcript}
+                        onChange={(e) => setTranscript(e.target.value)}
+                        rows={10}
+                        className="w-full px-4 py-3 bg-zinc-950 text-zinc-100 border border-zinc-800 rounded-xl focus:outline-none focus:border-zinc-500 transition-colors placeholder-zinc-600 font-mono text-sm leading-relaxed"
+                        placeholder="Paste podcast transcript here..."
+                    />
+                    {error && <p className="text-xs text-red-400 font-mono text-center">{error}</p>}
+                    <button
+                        onClick={handleAnalyze}
+                        className="w-full py-3.5 bg-white hover:bg-zinc-200 text-black font-medium text-sm rounded-xl transition-all shadow-sm active:scale-[0.99]"
+                    >
+                        Analyze Transcript & Generate Scenes
+                    </button>
+                </div>
+            )}
 
-                {step === ProcessStep.ANALYZING && <Spinner text="Analyzing transcript and crafting scenes..." />}
+            {step === ProcessStep.ANALYZING && (
+                <div className="py-12 text-center">
+                    <Spinner text="Analyzing transcript with Gemini Pro..." />
+                </div>
+            )}
 
-                {(step === ProcessStep.SCENES_READY || step === ProcessStep.GENERATING_VIDEOS || step === ProcessStep.DONE) && (
-                     <div className="space-y-6">
-                        <h3 className="text-2xl font-semibold text-center">Generated Scenes</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {scenes.map(scene => (
-                                <div key={scene.scene_number} className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                                    <h4 className="font-bold text-cyan-400">Scene {scene.scene_number}</h4>
-                                    <p className="text-sm text-gray-300 mt-1"><strong className="text-gray-400">Narration:</strong> {scene.narration}</p>
-                                    <p className="text-xs text-gray-400 mt-2"><strong className="text-gray-500">Visual Prompt:</strong> {scene.visual_prompt}</p>
+            {(step === ProcessStep.SCENES_READY || step === ProcessStep.GENERATING_VIDEOS || step === ProcessStep.DONE) && (
+                <div className="space-y-8">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+                        <div>
+                            <h3 className="text-xl font-semibold text-white tracking-tight">Storyboard & Video Scenes</h3>
+                            <p className="text-xs text-zinc-400 mt-1">{scenes.length} key scenes synthesized from transcript</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={resetProcess}
+                                className="px-4 py-2 text-xs font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white border border-zinc-700 rounded-lg transition-colors"
+                            >
+                                Start Over
+                            </button>
+                            {step === ProcessStep.SCENES_READY && (
+                                <button
+                                    onClick={handleGenerateVideos}
+                                    className="px-5 py-2 text-xs font-semibold bg-white text-black hover:bg-zinc-200 rounded-lg transition-all shadow-sm"
+                                >
+                                    Generate All Videos with Veo
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {step === ProcessStep.SCENES_READY && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {scenes.map((scene, idx) => (
+                                <div key={scene.scene_number} className="p-5 bg-zinc-950 rounded-xl border border-zinc-800 flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="px-2.5 py-0.5 text-xs font-mono font-medium bg-zinc-800 text-zinc-300 rounded border border-zinc-700">
+                                                Scene {scene.scene_number}
+                                            </span>
+                                        </div>
+                                        <div className="mb-4">
+                                            <h5 className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-1">Narration</h5>
+                                            <p className="text-xs text-zinc-200 leading-relaxed bg-zinc-900/60 p-3 rounded-lg border border-zinc-800">{scene.narration}</p>
+                                        </div>
+                                        <div>
+                                            <h5 className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-1">Visual Prompt</h5>
+                                            <p className="text-xs text-zinc-400 bg-zinc-900/80 p-3 rounded-lg border border-zinc-800 font-mono leading-relaxed">{scene.visual_prompt}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => copyToClipboard(scene.visual_prompt, idx)}
+                                        className="mt-4 w-full py-2 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors border border-zinc-700"
+                                    >
+                                        {copiedIndex === idx ? '✓ Prompt Copied' : 'Copy Prompt'}
+                                    </button>
                                 </div>
                             ))}
                         </div>
-                         {step === ProcessStep.SCENES_READY && (
-                            <button onClick={handleGenerateVideos} className="w-full px-6 py-3 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600">
-                                Generate All Videos
-                            </button>
-                         )}
-                    </div>
-                )}
-                
-                {(step === ProcessStep.GENERATING_VIDEOS || step === ProcessStep.DONE) && (
-                    <div className="mt-8">
-                        <h3 className="text-2xl font-semibold text-center mb-4">Video Generation Progress</h3>
+                    )}
+
+                    {(step === ProcessStep.GENERATING_VIDEOS || step === ProcessStep.DONE) && (
                         <div className="space-y-4">
                             {generatedVideos.map((video, index) => (
-                                <div key={index} className="flex items-center p-4 bg-gray-800 rounded-lg gap-4">
-                                    <div className="flex-1">
-                                        <h4 className="font-bold text-cyan-400">Scene {video.scene.scene_number}</h4>
-                                        <p className="text-sm text-gray-300">{video.scene.narration}</p>
+                                <div key={index} className="flex flex-col md:flex-row items-stretch p-5 bg-zinc-950 rounded-xl border border-zinc-800 gap-6">
+                                    <div className="flex-1 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="px-2.5 py-0.5 text-xs font-mono font-medium bg-zinc-800 text-zinc-300 rounded border border-zinc-700">
+                                                    Scene {video.scene.scene_number}
+                                                </span>
+                                            </div>
+                                            <h5 className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-1">Narration</h5>
+                                            <p className="text-sm text-zinc-200 leading-relaxed mb-3">{video.scene.narration}</p>
+                                            <h5 className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-1">Prompt</h5>
+                                            <p className="text-xs text-zinc-400 font-mono">{video.scene.visual_prompt}</p>
+                                        </div>
                                     </div>
-                                    <div className="w-48 flex-shrink-0">
+                                    <div className="w-full md:w-80 flex-shrink-0">
                                         {video.status === 'pending' && (
-                                            <div className="w-full aspect-video bg-gray-900/50 rounded-lg flex items-center justify-center border border-gray-700">
-                                                <span className="text-gray-500 text-sm">Queued...</span>
+                                            <div className="w-full aspect-video bg-zinc-900 rounded-xl flex items-center justify-center border border-zinc-800">
+                                                <span className="text-zinc-600 text-xs font-mono">Queued in pipeline...</span>
                                             </div>
                                         )}
                                         {video.status === 'generating' && (
-                                            <div className="w-full aspect-video bg-gray-900 rounded-lg flex flex-col items-center justify-center p-2 border border-cyan-500/30">
-                                                <Spinner size="sm" />
-                                                <p className="text-xs text-gray-400 mt-2 text-center leading-tight">"{video.scene.narration}"</p>
+                                            <div className="w-full aspect-video bg-zinc-900 rounded-xl flex flex-col items-center justify-center p-4 border border-zinc-700">
+                                                <Spinner size="sm" text="Generating Veo Video..." />
                                             </div>
                                         )}
                                         {video.status === 'done' && video.videoUrl && (
-                                            <video src={video.videoUrl} className="w-full rounded-lg" controls muted loop autoPlay />
+                                            <video src={video.videoUrl} className="w-full aspect-video rounded-xl object-cover border border-zinc-700 shadow-md" controls muted loop autoPlay />
                                         )}
                                         {video.status === 'error' && (
-                                            <div className="w-full aspect-video bg-red-900/20 rounded-lg flex flex-col items-center justify-center p-2 border border-red-500/50 text-center">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                <span className="text-red-400 text-xs">{video.errorMessage}</span>
+                                            <div className="w-full aspect-video bg-zinc-900 rounded-xl flex flex-col items-center justify-center p-3 border border-red-900/50 text-center">
+                                                <span className="text-red-400 text-xs font-mono">{video.errorMessage || 'Generation failed'}</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
+            )}
 
-                {(step === ProcessStep.DONE || step === ProcessStep.ERROR) && (
-                    <button onClick={resetProcess} className="mt-8 w-full px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-500">
-                        Start Over
+            {step === ProcessStep.ERROR && (
+                <div className="text-center py-8 space-y-4">
+                    {error && <p className="text-red-400 text-sm font-mono">{error}</p>}
+                    <button
+                        onClick={resetProcess}
+                        className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium text-xs rounded-xl border border-zinc-700 transition-colors"
+                    >
+                        Try Again
                     </button>
-                )}
-                
-                {error && <p className="mt-6 text-red-400 text-center">{error}</p>}
-            </div>
-        </ApiKeySelector>
+                </div>
+            )}
+        </div>
     );
 };
 
